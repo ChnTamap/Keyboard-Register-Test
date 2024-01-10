@@ -126,7 +126,7 @@
 						</toolChain>
 					</folderInfo>
 					<sourceEntries>
-						<entry excluding="src/sin_table.h|src/ws2812b_tmr.c|src/ws2812b_io.c|src/uart_demo.c|Ld|RVMSIS|Startup|StdPeriphDriver" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
+						<entry excluding="src/ws2812_spi.c|src/sin_table.h|src/ws2812b_tmr.c|src/ws2812b_io.c|src/uart_demo.c|Ld|RVMSIS|Startup|StdPeriphDriver" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Ld"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="RVMSIS"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Startup"/>
