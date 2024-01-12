@@ -11,16 +11,13 @@
 
 #include "CH58x_common.h"
 
-/**
- * 2LED位1个串口字节 12 Byte/LED
- * 单位时间300ns 主频80M 波特率3.33M N61
- * 数据操作使用串口FIFO 每次中断写入8字节 中断周期19.2us
- * 128个LED总时间 3.6864 ms 总显存 1536 byte
- */
-#define RGBT1_80M_300ns
+// #define RGBT2_80M_300ns /* 2位1串口 12Byte/LED 3.33M N61 中断周期19.2us */
+#define RGBT3_80M_400ns /* 2位1串口 12Byte/LED 3.33M N61 中断周期19.2us */
 
-#ifdef RGBT1_80M_300ns
+#if defined(RGBT2_80M_300ns)
+#define RGB_BAUDRATE 3333333
 #define BIT_PER_BYTE 2
+#define RGB_UART_LCR 0x01 // 6Bit
 static const uint8_t bit_table[4] = {
     /* 前位0 低位在前 */
     0x04, // 0 001000 1
@@ -28,6 +25,20 @@ static const uint8_t bit_table[4] = {
     0x06, // 0 011000 1
     0x26, // 0 011001 1
     /* 前位1相同 ... */
+};
+#elif defined(RGBT3_80M_400ns)
+#define RGB_BAUDRATE 2500000
+#define BIT_PER_BYTE 3
+#define RGB_UART_LCR 0x11 // 8Bit
+static const uint8_t bit_table[8] = {
+    0x12, // 0 01001000 1
+    0x92, // 0 01001001 1
+    0x32, // 0 01001100 1
+    0xB2, // 0 01001101 1
+    0x16, // 0 01101000 1
+    0x96, // 0 01101001 1
+    0x36, // 0 01101100 1
+    0xB6, // 0 01101101 1
 };
 #endif
 
@@ -115,8 +126,8 @@ int main()
     GPIOA_SetBits(GPIO_Pin_9);
     GPIOA_ModeCfg(GPIO_Pin_9, GPIO_ModeOut_PP_5mA); // TXD-配置推挽输出，注意先让IO口输出高电平
     UART1_DefInit();
-    UART1_BaudRateCfg(3333333);
-    R8_UART1_LCR = 0x01; // RB_LCR_WORD_SZ; 6bit
+    UART1_BaudRateCfg(RGB_BAUDRATE);
+    R8_UART1_LCR = RGB_UART_LCR; // 串口数据位
 
     TxBuff[BIT_NUM - 8] = 0x00;
     while (1)
