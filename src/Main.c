@@ -2,28 +2,38 @@
  * File Name          : Main.c
  * Author             : Tamap
  * Version            : V1.0
- * Date               : 2024/01/10
- * Description        : SPI0驱动WS281X彩灯功能演示
+ * Date               : 2024/01/12
+ * Description        : UART1驱动WS281X彩灯功能演示
+ *
  * Copyright (c) 2024 Tamap
  * SPDX-License-Identifier: Apache-2.0
  *******************************************************************************/
 
 #include "CH58x_common.h"
 
-static uint32_t get_sin_u8(uint16_t x)
-{
-    x = x % 1024;
-    if (x < 256)
-        return x;
-    else if (x < 512)
-        return (511 - x);
-    else
-        return 0;
-}
+/**
+ * 2LED位1个串口字节 12 Byte/LED
+ * 单位时间300ns 主频80M 波特率3.33M N61
+ * 数据操作使用串口FIFO 每次中断写入8字节 中断周期19.2us
+ * 128个LED总时间 3.6864 ms 总显存 1536 byte
+ */
+#define RGBT1_80M_300ns
 
-#define RGB_NUM 16
-#define PART_NUM RGB_NUM
-#define BIT_NUM (12 * PART_NUM) // DATA
+#ifdef RGBT1_80M_300ns
+#define BIT_PER_BYTE 2
+static const uint8_t bit_table[4] = {
+    /* 前位0 低位在前 */
+    0x04, // 0 001000 1
+    0x24, // 0 001001 1
+    0x06, // 0 011000 1
+    0x26, // 0 011001 1
+    /* 前位1相同 ... */
+};
+#endif
+
+#define RGB_NUM 16                         // RGBLED的数量
+#define BYTE_PER_RGB (24 / BIT_PER_BYTE)   // X byte/LED
+#define BIT_NUM ((BYTE_PER_RGB) * RGB_NUM) // DATA
 __attribute__((aligned(4))) uint8_t TxBuff[BIT_NUM + 8];
 
 typedef union
@@ -49,33 +59,16 @@ typedef union
 } color_t;
 uint16_t x;
 
-#if 0
-static const uint8_t bit_table[8] = {
-    /* 前位0 低位在前 */
-    0x04, // 0 001000 1
-    0x24, // 0 001001 1
-    0x06, // 0 011000 1
-    0x26, // 0 011001 1
-    /* 前位1相同 */
-    0x04, // 0 001000 1
-    0x24, // 0 001001 1
-    0x06, // 0 011000 1
-    0x26, // 0 011001 1
-};
-#else
-static const uint8_t bit_table[8] = {
-    /* 前位0 低位在前 */
-    0x04, // 0 001000 1
-    0x24, // 0 001001 1
-    0x06, // 0 011000 1
-    0x26, // 0 011001 1
-    /* 前位1相同 */
-    0x04, // 0 001000 1
-    0x24, // 0 001001 1
-    0x06, // 0 011000 1
-    0x26, // 0 011001 1
-};
-#endif
+static uint32_t get_sin_u8(uint16_t x)
+{
+    x = x % 1024;
+    if (x < 256)
+        return x;
+    else if (x < 512)
+        return (511 - x);
+    else
+        return 0;
+}
 
 /*********************************************************************
  * @fn      update_rgb
@@ -91,17 +84,18 @@ void update_rgb(void)
         x = 0;
 
     uint8_t *b = TxBuff;
-    for (int i = 0; i < PART_NUM; i++)
+    for (int i = 0; i < RGB_NUM; i++)
     {
         uint16_t j = x + (i << 4);
         color_t rgb;
         rgb.c.r = get_sin_u8(j);
         rgb.c.g = get_sin_u8(j + 341);
         rgb.c.b = get_sin_u8(j + 682);
-        for (int j = 0; j < 12; j++)
+        for (int j = 0; j < BYTE_PER_RGB; j++)
         {
-            rgb.dw <<= 2;
-            *b++ = bit_table[rgb.c.x & 0x03];
+            rgb.dw <<= BIT_PER_BYTE;
+#define BIT_MASK ((1 << BIT_PER_BYTE) - 1)
+            *b++ = bit_table[rgb.c.x & BIT_MASK];
         }
     }
 }
