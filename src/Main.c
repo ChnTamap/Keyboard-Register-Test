@@ -15,13 +15,13 @@
  * 时序选择, 请根据实际系统主频和性能要求选择串口频率和位数
  * 注意: 带'!'的选项并不严格满足时序或比较极限, 但经测试可以运行
  */
-// #define RGBT2_N61_300ns /* 2:1 RGB/s 中断周期19.2us */
-// #define RGBT3_N81_300ns /* (!)3:1 RGB/s 中断周期24us */
-// #define RGBT3_N81_333ns /* (!)3:1 RGB/s 中断周期26.64us */
-// #define RGBT3_N81_400ns /* (!)3:1 RGB/s 中断周期32us */
-// #define RGBT3_E81_300ns /* (!)3:1 RGB/s 中断周期 26.4us */
-// #define RGBT3_E81_333ns /* (!)3:1 RGB/s 中断周期29.3us */
-#define RGBT3_E81_400ns /* (!)3:1 RGB/s 中断周期35.2us */
+// #define RGBT2_N61_300ns /*    2:1 34.7k LED/s 中断周期19.2us */
+// #define RGBT3_N81_300ns /* (!)3:1 41.7k LED/s 中断周期24us */
+// #define RGBT3_N81_333ns /* (!)3:1 37.5k LED/s 中断周期26.64us */
+// #define RGBT3_N81_400ns /* (!)3:1 31.3k LED/s 中断周期32us */
+// #define RGBT3_E81_300ns /* (!)3:1 37.9k LED/s 中断周期 26.4us */
+// #define RGBT3_E81_333ns /* (!)3:1 34.1k LED/s 中断周期29.3us */
+#define RGBT3_E81_400ns /* (!)3:1 28.4k LED/s 中断周期35.2us */
 
 #if defined(RGBT2_N61_300ns)
 #define RGB_FSYS CLK_SOURCE_PLL_80MHz
@@ -188,9 +188,9 @@ void update_rgb(void)
     {
         uint16_t j = x + (i << 4);
         color_t rgb;
-        rgb.c.r = get_sin_u8(j);
-        rgb.c.g = get_sin_u8(j + 341);
-        rgb.c.b = get_sin_u8(j + 682);
+        rgb.c.r = get_sin_u8(j) >> 3;
+        rgb.c.g = get_sin_u8(j + 341) >> 3;
+        rgb.c.b = get_sin_u8(j + 682) >> 3;
         for (int j = 0; j < BYTE_PER_RGB; j++)
         {
             rgb.dw <<= BIT_PER_BYTE;
