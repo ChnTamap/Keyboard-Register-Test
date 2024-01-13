@@ -1,3 +1,4 @@
 {
-    "makefile.makeDirectory": "obj"
+    "makefile.makeDirectory": "obj",
+    "C_Cpp.clang_format_style": "file:${workspaceFolder}\\doc\\.clang-format"
 }

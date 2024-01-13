@@ -15,13 +15,13 @@
  * 时序选择, 请根据实际系统主频和性能要求选择串口频率和位数
  * 注意: 带'!'的选项并不严格满足时序或比较极限, 但经测试可以运行
  */
-// #define RGBT2_N61_300ns /*    2:1 34.7k LED/s 中断周期19.2us */
+#define RGBT2_N61_300ns /*    2:1 34.7k LED/s 中断周期19.2us */
 // #define RGBT3_N81_300ns /* (!)3:1 41.7k LED/s 中断周期24us */
 // #define RGBT3_N81_333ns /* (!)3:1 37.5k LED/s 中断周期26.64us */
 // #define RGBT3_N81_400ns /* (!)3:1 31.3k LED/s 中断周期32us */
 // #define RGBT3_E81_300ns /* (!)3:1 37.9k LED/s 中断周期 26.4us */
 // #define RGBT3_E81_333ns /* (!)3:1 34.1k LED/s 中断周期29.3us */
-#define RGBT3_E81_400ns /* (!)3:1 28.4k LED/s 中断周期35.2us */
+// #define RGBT3_E81_400ns /* (!)3:1 28.4k LED/s 中断周期35.2us */
 
 #if defined(RGBT2_N61_300ns)
 #define RGB_FSYS CLK_SOURCE_PLL_80MHz
@@ -134,7 +134,7 @@ static const uint8_t bit_table[8] = {
 #define RGB_NUM 16                         // RGBLED的数量
 #define BYTE_PER_RGB (24 / BIT_PER_BYTE)   // X byte/LED
 #define BIT_NUM ((BYTE_PER_RGB) * RGB_NUM) // DATA
-__attribute__((aligned(4))) uint8_t TxBuff[BIT_NUM + 1];
+__attribute__((aligned(4))) uint8_t TxBuff[BIT_NUM + 9];
 
 typedef union
 {
@@ -188,9 +188,9 @@ void update_rgb(void)
     {
         uint16_t j = x + (i << 4);
         color_t rgb;
-        rgb.c.r = get_sin_u8(j) >> 3;
-        rgb.c.g = get_sin_u8(j + 341) >> 3;
-        rgb.c.b = get_sin_u8(j + 682) >> 3;
+        rgb.c.r = get_sin_u8(j);
+        rgb.c.g = get_sin_u8(j + 341);
+        rgb.c.b = get_sin_u8(j + 682);
         for (int j = 0; j < BYTE_PER_RGB; j++)
         {
             rgb.dw <<= BIT_PER_BYTE;
@@ -200,7 +200,6 @@ void update_rgb(void)
     }
 }
 
-static void rgb_UartSend_IT(void);
 /*********************************************************************
  * @fn      main
  *
@@ -212,10 +211,6 @@ int main()
 {
     SetSysClock(CLK_SOURCE_PLL_80MHz);
 
-    /* Debug */
-    GPIOA_SetBits(GPIO_Pin_8);
-    GPIOA_ModeCfg(GPIO_Pin_8, GPIO_ModeOut_PP_5mA);
-
     /* 配置串口1：先配置IO口模式，再配置串口 */
     GPIOA_SetBits(GPIO_Pin_9);
     GPIOA_ModeCfg(GPIO_Pin_9, GPIO_ModeOut_PP_5mA); // TXD-配置推挽输出，注意先让IO口输出高电平
@@ -223,105 +218,25 @@ int main()
     UART1_BaudRateCfg(RGB_BAUDRATE);
     R8_UART1_LCR = RGB_UART_LCR; // 串口数据位
 
-    PFIC_EnableIRQ(UART1_IRQn);
+    TxBuff[BIT_NUM] = 0x00;
     while (1)
     {
         update_rgb();
-        rgb_UartSend_IT();
-        DelayMs(30);
-    }
-}
 
-static uint8_t *rgb_tx_ptr = NULL; // 发送指针
-static uint16_t rgb_tx_len = 0;    // 剩余发送数量
-/**
- * @fn rgb_UartSend_IT
- * @brief 开始中断方式发送RGB数据
- */
-static void rgb_UartSend_IT(void)
-{
-    TxBuff[BIT_NUM] = 0x00;
-    uint8_t *b = TxBuff;
-    /* 先发几个数据, 顺便等第一个字节进入起始位 */
-    R8_UART1_THR = *b++;
-    GPIOA_SetBits(GPIO_Pin_8); // Debug
-    R8_UART1_THR = *b++;
-    /* 起始位及后续的低电平期间, 使能TX以平滑过渡 */
-    R8_UART1_IER = RB_IER_TXD_EN;
-    GPIOA_SetBits(GPIO_Pin_9);
-    R8_UART1_THR = *b++;
-    R8_UART1_THR = *b++;
-    R8_UART1_THR = *b++;
-    R8_UART1_THR = *b++;
-    R8_UART1_THR = *b++;
-    R8_UART1_THR = *b++;
-    rgb_tx_len = sizeof(TxBuff) - 8;
-    rgb_tx_ptr = b;
-    UART1_INTCfg(ENABLE, RB_IER_THR_EMPTY);
-}
-/**
- * @fn rgb_isr_send
- * @brief RGB发送缓冲区空中断处理函数
- */
-static void rgb_isr_send(void)
-{
-    if (rgb_tx_len == 0)
-    {
-        /* 最后一个字节是无效字节00, 用于过渡低电平 */
+        /* 先发几个数据, 顺便等第一个字节进入起始位 */
+        R8_UART1_THR = TxBuff[0];
+        R8_UART1_THR = TxBuff[1];
+        R8_UART1_THR = TxBuff[2];
+        R8_UART1_THR = TxBuff[3];
+        /* 起始位及后续的低电平期间, 使能TX以平滑过渡 */
+        R8_UART1_IER = RB_IER_TXD_EN;
+        GPIOA_SetBits(GPIO_Pin_9);
+        /* 输出数据 */
+        UART1_SendString(TxBuff + 4, sizeof(TxBuff) - 4);
+        /* 倒数第9个字节(后面有8个无效字节在FIFO里面)是无效字节00, 用于过渡低电平 */
         GPIOA_ResetBits(GPIO_Pin_9);
-        GPIOA_ResetBits(GPIO_Pin_8); // Debug
         R8_UART1_IER &= ~RB_IER_TXD_EN;
-        UART1_INTCfg(DISABLE, RB_IER_THR_EMPTY);
-        return;
-    }
-    int n = (rgb_tx_len > 7) ? 8 : rgb_tx_len;
-    switch (n)
-    {
-    case 8: R8_UART1_THR = *rgb_tx_ptr++;
-    case 7: R8_UART1_THR = *rgb_tx_ptr++;
-    case 6: R8_UART1_THR = *rgb_tx_ptr++;
-    case 5: R8_UART1_THR = *rgb_tx_ptr++;
-    case 4: R8_UART1_THR = *rgb_tx_ptr++;
-    case 3: R8_UART1_THR = *rgb_tx_ptr++;
-    case 2: R8_UART1_THR = *rgb_tx_ptr++;
-    case 1: R8_UART1_THR = *rgb_tx_ptr++;
-    default: break;
-    }
-    rgb_tx_len -= n;
-    GPIOA_SetBits(GPIO_Pin_8); // Debug
-}
 
-/*********************************************************************
- * @fn      UART1_IRQHandler
- *
- * @brief   UART1中断函数
- *
- * @return  none
- */
-__INTERRUPT
-__HIGH_CODE
-void UART1_IRQHandler(void)
-{
-    GPIOA_ResetBits(GPIO_Pin_8); // Debug
-    switch (UART1_GetITFlag())
-    {
-    case UART_II_LINE_STAT: // 线路状态错误
-        break;
-
-    case UART_II_RECV_RDY: // 数据达到设置触发点
-        break;
-
-    case UART_II_RECV_TOUT: // 接收超时，暂时一帧数据接收完成
-        break;
-
-    case UART_II_THR_EMPTY: // 发送缓存区空，可继续发送
-        rgb_isr_send();
-        break;
-
-    case UART_II_MODEM_CHG: // 只支持串口0
-        break;
-
-    default:
-        break;
+        DelayMs(30);
     }
 }
