@@ -11,7 +11,10 @@
 
 #include "CH58x_common.h"
 
-__attribute__((aligned(4))) UINT8 spiBuffrev[16];
+#define KEY_NUM 16
+#define KEY_BYTE (KEY_NUM / 8)
+__attribute__((aligned(4))) UINT8 keyBuff[KEY_BYTE * 2];
+static uint8_t *spiBuff = keyBuff;
 
 void DebugInit(void)
 {
@@ -21,6 +24,13 @@ void DebugInit(void)
     UART1_DefInit();
 }
 
+/**
+ * @brief 在终端中显示按键状态 推荐使用PUTTY
+ * @details 0000
+ *          0000
+ *          0000
+ *          0000
+ */
 uint8_t uartBuff[] = "\x1B[0;0H\x1B[J0000\r\n0000\r\n0000\r\n0000\r\n";
 
 /*********************************************************************
@@ -48,16 +58,36 @@ int main()
 
     while (1)
     {
+        int i;
+        DelayMs(5); // Delay
+
+        /* 切换buff用于比较按键变化 */
+        spiBuff = (spiBuff == keyBuff) ? keyBuff + KEY_BYTE : keyBuff;
+
+        /* 启动SPI接收寄存器数据 */
         GPIOA_ResetBits(GPIO_Pin_14);
         GPIOA_SetBits(GPIO_Pin_14);
         GPIOA_ResetBits(GPIO_Pin_12);
-        SPI0_MasterRecv(spiBuffrev, 2);
+        SPI0_MasterRecv(spiBuff, KEY_BYTE);
         GPIOA_SetBits(GPIO_Pin_12);
 
-        uint8_t *c = uartBuff + 9;
-        for (int i = 0; i < 2; i++)
+        /* 检查按键变化 */
+        uint8_t *c = keyBuff;
+        uint8_t *c1 = keyBuff + KEY_BYTE;
+        for (i = 0; i < KEY_BYTE; i++)
         {
-            uint8_t b = spiBuffrev[i];
+            if (*c++ != *c1++)
+                break;
+        }
+        /* 如果按键发生变化则更新串口显示 */
+        if (i == KEY_BYTE)
+            continue;
+
+        /* 串口排版并发送 */
+        c = uartBuff + 9;
+        for (i = 0; i < KEY_BYTE; i++)
+        {
+            uint8_t b = spiBuff[i];
             *c++ = ((b & 0x80) == 0) + '0';
             *c++ = ((b & 0x40) == 0) + '0';
             *c++ = ((b & 0x20) == 0) + '0';
@@ -71,7 +101,5 @@ int main()
         }
         *c = 0;
         UART1_SendString(uartBuff, sizeof(uartBuff) - 1);
-
-        DelayMs(30);
     }
 }
