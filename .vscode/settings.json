@@ -1,4 +1,11 @@
 {
     "makefile.makeDirectory": "obj",
-    "C_Cpp.clang_format_style": "file:${workspaceFolder}\\doc\\.clang-format"
+    "C_Cpp.clang_format_style": "file:${workspaceFolder}\\doc\\.clang-format",
+    "files.associations": {
+        "ch58x_common.h": "c",
+        "kb_interface.h": "c",
+        "stddef.h": "c",
+        "kb_def.h": "c"
+    },
+    "C_Cpp.clang_format_sortIncludes": false
 }

@@ -2,8 +2,8 @@
  * File Name          : Main.c
  * Author             : Tamap
  * Version            : V1.0
- * Date               : 2024/01/12
- * Description        : UART1驱动WS281X彩灯功能演示
+ * Date               : 2024/01/15
+ * Description        : SPI读取按键功能(并通过UART1显示到终端)
  *
  * Copyright (c) 2024 Tamap
  * SPDX-License-Identifier: Apache-2.0
