@@ -277,3 +277,71 @@ LED每个位间的低电平根据不同产商不同可能会有不同的标准, 
 2. 经过3次发送, 将发送出(16+401)\*3=1251个SPI字节, 耗时约3.0024ms, 剩余285个SPI字节
 3. 第四次, 先收发16个字节, 再发送(285-16)=269字节. 完成一次LED刷新
 4. 后续按键扫描每毫秒收发16个即可, 直到下一次LED刷新开始
+
+# 低功耗测试
+
+使用mos管为LED, KEY, 芯片供电
+
+| 引脚 | 测试IO  | 描述                    |
+| ---- | ------- | ----------------------- |
+| LVCC | ~~B22~~ | RGB供电, 低电平有效     |
+| CVCC | B23     | 芯片供电, 低电平有效    |
+| KVCC | B4      | 按键供电, 低电平有效    |
+| CGND | B10     | RGB与芯片地, 高电平有效 |
+| KGND | B11     | 按键地, 高电平有效      |
+
+注: LVCC需要该引脚达到VBAT, 后续可能修改为N沟道
+
+## 断开CGND,KGND
+
+1. 断开CGND后, RGB芯片会从单片机通讯IO取电, 导致其点亮(因此IO需要配置为高阻态)
+2. 若使用5V/电池为RGB供电, 而单片机IO置于高电平时只有3.3V. RGB芯片LVCC与3.3V仍存在压差(0\~2.8V), 即使单片机输出高电平或高阻态, 仍然会通过IO口钳位进入单片机电源, 使IO口处于约3.6V的电位上
+3. RGB在3.3V下能工作但不符合手册规定, 在3.3V下, LVCC能正常断电
+4. (LVCC使用3.3V)
+   1. LVCC=3.3V, CVCC=3.3V, KVCC=3.3V, CGND=3.3V, KGND=0V(按下3.0V)
+   2. VCC电流0uA(100uA-3*3.3V/100kOhm), GND电流0uA 
+5. (LVCC使用4.7V)
+   1. LVCC=4.7V, CVCC=3.3V, KVCC=3.3V, CGND=3.7V, KGND=0V(按下3.2V)
+   2. LVCC电流108uA, CVCC电流3uA, GND电流0uA
+   3. EN_LVCC电流48uA, EN_CVCC电流33uA, EN_KVCC电流33uA, DA_RGB电流0uA
+
+## 断开LVCC,CVCC,KVCC
+
+1. 断开LVCC需要mos管电位达到VBAT(3.7\~4.2V | 5V), CH58x只有两个IO有5V兼容, 且这两个IO是调试引脚
+2. 断开CVCC后, 芯片会从单片机SPI接口取电, 导致CVCC电压仍然存在(因此IO需要配置为高阻态)
+3. 断开CVCC, KVCC后, 电路通过100K电阻->10K排阻->74HC165输入脚(可能是钳位二极管)->CVCC提供了约1.5V电压. 产生约7uA电流(0.7V/100kOhm). 并使KVCC下降到2.6V左右
+4. (LVCC使用3.3V)
+   1. LVCC=0V, CVCC=1.6V, CGND=0V, KVCC=2.5V(按下0V), KGND=0V
+   2. VCC电流8uA, GND电流8uA(74uA-2*3.3/100kOhm)
+5. (LVCC使用4.7V | 真正断开LVCC)
+   1. LVCC=0V, CVCC=1.6V, CGND=0V, KVCC=2.5V(按下0V), KGND=0V
+   2. LVCC电流0uA, CVCC电流8uA, GND电流8uA(74uA-2*3.3/100kOhm)
+
+## 全部断开
+
+1. (LVCC使用3.3V)
+   1. LVCC=1.8V, CVCC=2.8V, CGND=2V, KVCC=3.3V(按下1.7V), KGND=0V(按下1.6V)
+   2. VCC电流0uA, GND电流0uA
+2. (LVCC使用4.7V)
+   1. LVCC=4.7V, CVCC=3.5V, CGND=4V, KVCC=3.5V(按下3.4V), KGND=0V(按下3.3V)
+   2. VCC电流26.5uA, CVCC电流(-5.5uA), GND电流0uA
+3. (LVCC使用4.7V | 真正断开LVCC)
+   1. LVCC=1.8V, CVCC=2.8V, CGND=2V, KVCC=3.3V(按下1.7V), KGND=0V(按下1.6V)
+   2. LVCC电流0uA, CVCC电流0uA, GND电流0uA
+
+| 模式  | 供电 | CGND | LVCC | KGND  | KVCC    | CVCC | 5V    | 3V3   | GND  |
+| ----- | ---- | ---- | ---- | ----- | ------- | ---- | ----- | ----- | ---- |
+| EEENN | 3.3  | 3.3  | 3.3  | 0/3.0 | 3.3     | 3.3  | -     | 100uA | 0uA  |
+| EEENN | 4.7  | 3.7  | 4.7  | 0/3.2 | 3.3     | 3.3  | 108uA | 3uA   | 0uA  |
+| NNNNN | 3.3  | 2    | 1.8  | 0/1.6 | 3.3/1.7 | 2.8  | -     | 0uA   | 0uA  |
+| NNNNN | 4.7  | 4    | 4.7  | 0/3.3 | 3.5/3.4 | 3.5  | 26uA  | -5uA  | 0uA  |
+| XNNNN | 4.7  | 2    | 1.8  | 0/1.6 | 3.3/1.7 | 2.8  | 0uA   | 0uA   | 0uA  |
+| NNNEE | 3.3  | 0    | 0    | 0     | 2.5/0   | 1.6  | -     | 8uA   | 74uA |
+| NNNEE | 4.7  | 0    | 4.7  | 0     | 2.5/0   | 1.6  | 8mA   | 0mA   | 8mA  |
+| XNNEE | 4.7  | 0    | 0    | 0     | 2.5/0   | 1.6  | 0uA   | 8uA   | 74uA |
+
+## 方案
+
+1. 使用nmos+pmos断开LVCC, 使用两个nmos断开CVCC和KVCC
+2. 一个IO控制LVCC, 一个IO控制CVCC和KVCC
+3. KVCC连接到中断引脚, 当按键按下时, KVCC将变为低电平

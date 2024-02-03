@@ -30,7 +30,7 @@ struct inf_rgbarr
     void (*init)(struct inf_rgbarr *inf);                                /**< 初始化 */
     void (*disp)(struct inf_rgbarr *inf, ra_pix_t *buff, uint32_t size); /**< 显示 */
     /* 回调函数 */
-    void (*finish)(struct inf_rgbarr *inf); /**< 发送完成回调 */
+    // void (*finish)(struct inf_rgbarr *inf); /**< 发送完成回调 */
 };
 typedef struct inf_rgbarr inf_rgbarr_t;
 

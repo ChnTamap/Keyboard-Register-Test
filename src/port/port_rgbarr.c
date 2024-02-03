@@ -242,7 +242,6 @@ static void rgb_disp(inf_rgbarr_t *inf, ra_pix_t *buff, uint32_t size)
     b                    = _inf->txbuf;
     /* 先发几个数据, 顺便等第一个字节进入起始位 */
     R8_UART0_THR = *b++;
-    GPIOB_SetBits(GPIO_Pin_8); // Debug
     R8_UART0_THR = *b++;
     /* 起始位及后续的低电平期间, 使能TX以平滑过渡 */
     R8_UART0_IER = RB_IER_TXD_EN;
@@ -293,7 +292,6 @@ static void rgb_isr_send(inf_rgbarr_uartit_t *_inf)
     {
         /* 最后一个字节是无效字节00, 用于过渡低电平 */
         GPIOB_ResetBits(GPIO_Pin_7);
-        GPIOB_ResetBits(GPIO_Pin_8); // Debug
         R8_UART0_IER &= ~RB_IER_TXD_EN;
         UART0_INTCfg(DISABLE, RB_IER_THR_EMPTY);
         return;
@@ -312,7 +310,6 @@ static void rgb_isr_send(inf_rgbarr_uartit_t *_inf)
     default: break;
     }
     _inf->tx_len -= n;
-    GPIOB_SetBits(GPIO_Pin_8); // Debug
 }
 
 /*********************************************************************
@@ -326,7 +323,6 @@ __INTERRUPT
 __HIGH_CODE
 void UART0_IRQHandler(void)
 {
-    GPIOB_ResetBits(GPIO_Pin_8); // Debug
     switch (UART0_GetITFlag())
     {
     case UART_II_LINE_STAT: // 线路状态错误
